@@ -1,3 +1,8 @@
+/**
+ * Módulo responsável por desenhar as extremidades das relações (setas, diamantes, círculos, etc.).
+ * Calcula o encurtamento necessário da linha para que o terminador encaixe perfeitamente
+ * no nó de destino.
+ */
 import { Config } from './domain'
 import { Graphics } from './Graphics'
 import { LayoutedAssoc } from './layouter'
@@ -7,6 +12,10 @@ import { Vec, diff, normalize, add, mult, rot } from './vector'
 const empty = false
 const filled = true
 
+/**
+ * Ajusta o caminho da linha (path) para não sobrepor o desenho do terminador.
+ * Encurta o início e o fim da linha baseando-se no tipo de terminador.
+ */
 export function getPath(config: Config, r: LayoutedAssoc): Vec[] {
   const path = r.path!.slice(1, -1)
   const endDir = normalize(diff(path[path.length - 2], last(path)))
@@ -16,11 +25,14 @@ export function getPath(config: Config, r: LayoutedAssoc): Vec[] {
   const end = path.length - 1
   const copy = path.map((p) => ({ x: p.x, y: p.y }))
   const tokens = r.type.split(/[-_]/)
+  
+  // Encurta a linha em ambas as extremidades
   copy[head] = add(copy[head], mult(startDir, size * terminatorSize(tokens[0])))
   copy[end] = add(copy[end], mult(endDir, size * terminatorSize(last(tokens))))
   return copy
 }
 
+/** Retorna o tamanho ocupado por cada tipo de terminador para cálculo de encurtamento */
 function terminatorSize(id: string): number {
   if (id === '>' || id === '<') return 5
   if (id === ':>' || id === '<:') return 10
@@ -32,6 +44,9 @@ function terminatorSize(id: string): number {
   return 0
 }
 
+/**
+ * Desenha os terminadores nas duas pontas de uma associação.
+ */
 export function drawTerminators(g: Graphics, config: Config, r: LayoutedAssoc) {
   const start = r.path![1]
   const end = r.path![r.path!.length - 2]
@@ -41,6 +56,7 @@ export function drawTerminators(g: Graphics, config: Config, r: LayoutedAssoc) {
   drawArrowEnd(last(tokens), path, end)
   drawArrowEnd(tokens[0], path.reverse(), start)
 
+  /** Helper que escolhe a função de desenho correta baseada no token (id) */
   function drawArrowEnd(id: string, path: Vec[], end: Vec) {
     const dir = normalize(diff(path[path.length - 2], last(path)))
     const size = (config.spacing * config.arrowSize) / 30
@@ -62,17 +78,20 @@ export function drawTerminators(g: Graphics, config: Config, r: LayoutedAssoc) {
     }
   }
 
+  /** Desenha uma pequena bola (usada em lollipops/sockets) */
   function drawBall(nv: Vec, size: number, stem: number, end: Vec) {
     const center = add(end, mult(nv, size * stem))
     g.fillStyle(config.fill[0])
-    g.ellipse(center, size * 6, size * 6).fillAndStroke()
+    g.circle(center, size * 3).fillAndStroke() // simplificação da elipse para círculo
   }
 
+  /** Desenha a haste de conexão para terminadores complexos */
   function drawStem(nv: Vec, size: number, stem: number, end: Vec) {
     const center = add(end, mult(nv, size * stem))
     g.path([center, end]).stroke()
   }
 
+  /** Desenha o encaixe circular (socket) */
   function drawSocket(nv: Vec, size: number, stem: number, end: Vec) {
     const base = add(end, mult(nv, size * stem))
     const t = rot(nv)
@@ -82,6 +101,7 @@ export function drawTerminators(g: Graphics, config: Config, r: LayoutedAssoc) {
     g.path(socket).stroke()
   }
 
+  /** Desenha uma ponta de seta (preenchida ou vazada) */
   function drawArrow(nv: Vec, size: number, isOpen: boolean, end: Vec) {
     const x = (s: number) => add(end, mult(nv, s * size))
     const y = (s: number) => mult(rot(nv), s * size)
@@ -95,6 +115,7 @@ export function drawTerminators(g: Graphics, config: Config, r: LayoutedAssoc) {
     g.circuit(arrow).fillAndStroke()
   }
 
+  /** Desenha um losango (diamond) para relações de composição/agregação */
   function drawDiamond(nv: Vec, size: number, isOpen: boolean, end: Vec) {
     const x = (s: number) => add(end, mult(nv, s * size))
     const y = (s: number) => mult(rot(nv), s * size)

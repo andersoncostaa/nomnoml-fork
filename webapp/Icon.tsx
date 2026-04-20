@@ -1,3 +1,7 @@
+/**
+ * Componente React funcional para renderizar ícones baseados em caminhos SVG (paths).
+ * Utilizado uniformemente em toda a interface da webapp.
+ */
 import * as React from 'react'
 
 export function Icon(props: { shape?: string }) {
@@ -11,6 +15,7 @@ export function Icon(props: { shape?: string }) {
         width={24}
         height={24}
       >
+        {/* O atributo 'd' define o desenho vetorial do ícone */}
         <path d={props.shape} />
       </svg>
     </i>

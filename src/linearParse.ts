@@ -1,7 +1,13 @@
+/**
+ * Parser linear que utiliza uma técnica de descida recursiva simplificada para converter
+ * o código-fonte nomnoml em uma Árvore de Sintaxe Abstrata (AST).
+ * Lida com nós [class], associações [a]->[b], metadados [<type> id] e diretivas #.
+ */
 import { Association, Ast, Directive, Node, Part } from './parser'
 
 type Attrs = Record<string, string>
 
+/** Extrai diretivas de configuração que começam com '#' (ex: #fill: red) */
 function extractDirectives(source: string): Directive[] {
   const directives: Directive[] = []
   for (const line of source.split('\n')) {
@@ -13,6 +19,9 @@ function extractDirectives(source: string): Directive[] {
   return directives
 }
 
+/**
+ * Função principal de parsing linear.
+ */
 export function linearParse(source: string): Ast {
   let line = 1
   let lineStartIndex = 0
@@ -20,6 +29,7 @@ export function linearParse(source: string): Ast {
 
   const directives = extractDirectives(source)
 
+  // Remove comentários (//) e diretivas (#) para facilitar o processamento dos elementos visuais
   source = source.replace(/^[ \t]*\/\/[^\n]*/gm, '').replace(/^#[^\n]*/gm, '')
 
   if (source.trim() === '')
@@ -38,12 +48,14 @@ export function linearParse(source: string): Ast {
     lineStartIndex = index
   }
 
+  /** Adiciona um nó à coleção, resolvendo conflitos de IDs repetidos */
   function addNode(nodes: Node[], node: Node) {
     const i = nodes.findIndex((e) => e.id === node.id)
     if (i === -1) nodes.push(node)
     else if (nodes[i].parts.length < node.parts.length) nodes[i] = node
   }
 
+  /** Faz o parsing de uma "parte" (compartimento ou nível hierárquico) */
   function parsePart(): Part {
     const nodes: Node[] = []
     const assocs: Association[] = []
@@ -60,10 +72,12 @@ export function linearParse(source: string): Ast {
       } else if (source[index] == '|' || source[index] == ']') {
         return { nodes, assocs, lines }
       } else if (source[index] == '[') {
+        // Encontrou um elemento ou sequência de elementos/associações
         const extracted = parseNodesAndAssocs()
         for (const node of extracted.nodes) addNode(nodes, node)
         for (const assoc of extracted.assocs) assocs.push(assoc)
       } else {
+        // Encontrou texto plano (linhas de texto dentro de um nó)
         const text = parseLine().trim()
         if (text) lines.push(text)
       }
@@ -72,6 +86,7 @@ export function linearParse(source: string): Ast {
     return { nodes, assocs, lines }
   }
 
+  /** Faz o parsing de sequências de nós e associações: [A]->[B]->[C] */
   function parseNodesAndAssocs(): { nodes: Node[]; assocs: Association[] } {
     const nodes: Node[] = []
     const assocs: Association[] = []
@@ -83,6 +98,7 @@ export function linearParse(source: string): Ast {
       if (isOneOf('\n', ']', '|', ';')) {
         return { nodes, assocs }
       } else {
+        // Se não for um terminador, deve ser o início de uma associação
         const { association, target } = parseAssociation(node)
         assocs.push(association)
         addNode(nodes, target)
@@ -93,11 +109,13 @@ export function linearParse(source: string): Ast {
     return { nodes, assocs }
   }
 
+  /** Trata sequências de escape (ex: \n) */
   function transformEscapes(char: string): string {
     if (char === 'n') return '\n'
     return char
   }
 
+  /** Faz o parsing de uma associação entre nós e seus rótulos */
   function parseAssociation(fromNode: Node): { association: Association; target: Node } {
     let startLabel = ''
     while (index < source.length) {
@@ -106,6 +124,7 @@ export function linearParse(source: string): Ast {
         pop()
         startLabel += transformEscapes(pop())
       }
+      // Procura pelo símbolo da linha/seta
       if (isOneOf('(o-', '(-', 'o<-', 'o-', '+-', '<:-', '<-', '-')) break
       else if (isOneOf('[', ']', '|', '<', '>', ';')) error('label', source[index])
       else startLabel += pop()
@@ -128,8 +147,9 @@ export function linearParse(source: string): Ast {
     }
   }
 
+  /** Faz o parsing de um nó individual: [ <type> id | parte1 | parte2 ] */
   function parseNode(): Node {
-    index++
+    index++ // consome '['
     let attr: Attrs = {}
     let type = 'class'
     if (source[index] == '<') {
@@ -152,6 +172,7 @@ export function linearParse(source: string): Ast {
     error(']', source[index])
   }
 
+  /** Lê uma linha de texto até encontrar um delimitador de nó/parte */
   function parseLine(): string {
     const chars: string[] = []
     while (index < source.length) {
@@ -169,8 +190,9 @@ export function linearParse(source: string): Ast {
     return chars.join('')
   }
 
+  /** Faz o parsing de metadados de tipo: <abstract> */
   function parseMeta(): { type: string; attr: Attrs } {
-    index++
+    index++ // consome '<'
     const type = consume(/[a-zA-Z0-9_]/)
     const char = pop()
     if (char == '>') return { type, attr: {} }
@@ -178,6 +200,7 @@ export function linearParse(source: string): Ast {
     return { type, attr: parseAttrs() }
   }
 
+  /** Faz o parsing de atributos dentro do nó: <key=value> */
   function parseAttrs(): Attrs {
     const key = consume(/[a-zA-Z0-9_]/)
     const separator = pop()
@@ -189,16 +212,19 @@ export function linearParse(source: string): Ast {
     error([' ', '>'], char)
   }
 
+  /** Consome e retorna o caractere atual */
   function pop() {
     const char = source[index]
     index++
     return char
   }
 
+  /** Descarta caracteres que casam com o regex (espaços em branco, etc) */
   function discard(regex: RegExp): void {
     while (source[index]?.match(regex)) index++
   }
 
+  /** Consome caracteres que casam com o regex e os retorna como string */
   function consume(regex: RegExp, optional?: 'optional'): string {
     const start = index
     while (source[index]?.match(regex)) index++
@@ -211,6 +237,7 @@ export function linearParse(source: string): Ast {
     return consume(regex, 'optional')
   }
 
+  /** Verifica se o próximo token é um dos padrões fornecidos sem avançar o índice */
   function isOneOf(...patterns: string[]): boolean {
     for (const pattern of patterns) {
       const token = source.slice(index, index + pattern.length)
@@ -221,6 +248,7 @@ export function linearParse(source: string): Ast {
     return false
   }
 
+  /** Consome um dos padrões fornecidos ou lança erro */
   function consumeOneOf(...patterns: string[]): string {
     for (const pattern of patterns) {
       const token = source.slice(index, index + pattern.length)
@@ -241,6 +269,7 @@ export function linearParse(source: string): Ast {
 
 type Pattern = string | undefined | RegExp | string[]
 
+/** Helper para serializar padrões esperados em mensagens de erro amigáveis */
 function serializeValue(value: Pattern): string {
   if (value == null) return 'end of file'
   if (value instanceof RegExp) return value.toString().slice(1, -1)
@@ -248,6 +277,7 @@ function serializeValue(value: Pattern): string {
   return JSON.stringify(value)
 }
 
+/** Erro customizado com informações de localização para falhas de parsing */
 export class ParseError extends Error {
   expected: string | undefined | RegExp
   actual: string

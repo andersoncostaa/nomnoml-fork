@@ -1,3 +1,7 @@
+/**
+ * Componente React que gerencia o menu de arquivos.
+ * Permite salvar, carregar, renomear, excluir, importar e exportar arquivos (incluindo pacotes ZIP).
+ */
 // @ts-ignore
 import JSZip from 'jszip'
 // @ts-ignore
@@ -22,6 +26,8 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
   var filesystem = props.app.filesystem
   var isLocalFile = filesystem.storage.kind === 'local_file'
   var isAtHome = filesystem.storage.kind === 'local_default'
+  
+  /** Organiza os arquivos em uma estrutura de lista plana com marcadores de diretório */
   var entries: Array<{ isDir: boolean; name: string; entry?: FileEntry }> = []
   var currentDir = null
   for (var entry of props.files) {
@@ -39,6 +45,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     return isLocalFile && filesystem.activeFile.name === item.name
   }
 
+  /** Gera a URL de hash para navegação até um arquivo específico */
   function itemPath(item: FileEntry) {
     return '#file/' + encodeURIComponent(item.name).replace(/%20/g, '+').replace(/%2F/g, '/')
   }
@@ -47,6 +54,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     if (confirm('Permanently delete "' + item.name + '"')) filesystem.discard(item)
   }
 
+  /** Carrega um arquivo SVG e tenta extrair o código nomnoml dele */
   function loadSvg(e: { target: HTMLInputElement }) {
     var files = e.target.files
     props.app.handleOpeningFiles(files!)
@@ -59,6 +67,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     }
   }
 
+  /** Exporta todos os arquivos (ou uma pasta específica) para um arquivo .zip */
   async function exportArchive(folder?: string) {
     var zip = new JSZip()
     var files = await filesystem.storage.files()
@@ -73,6 +82,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     saveAs(blob, folder ?? `nomnoml-${date}.zip`)
   }
 
+  /** Importa arquivos de um pacote .zip para o armazenamento local */
   async function importArchive(e: { target: HTMLInputElement }) {
     var fileInputElement = e.target
     var file = fileInputElement.files![0]
@@ -88,9 +98,9 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     var files = await filesystem.storage.files()
     var zip = await JSZip.loadAsync(file)
     for (var key in zip.files) {
-      if (key.split('/').some((segment) => segment[0] == '.')) continue // skip hidden files and folders
+      if (key.split('/').some((segment) => segment[0] == '.')) continue // ignora arquivos ocultos
       var zipEntry = zip.file(key)
-      if (!zipEntry) continue // skip directories
+      if (!zipEntry) continue // ignora diretórios
       var content = await zipEntry.async('text')
       var filename = uniqueName(
         folder + key,
@@ -103,6 +113,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     filesystem.finishedInsertingFiles()
   }
 
+  /** Garante que um nome de arquivo importado não sobrescreva um existente */
   function uniqueName(name: string, existing: string[]): string {
     var suffix: number | '' = ''
     while (existing.some((e) => e == name + suffix)) {
@@ -111,6 +122,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     return name + suffix.toString()
   }
 
+  /** Renderiza uma linha correspondente a um arquivo */
   function makeFileEntry(name: string, entry: FileEntry) {
     var activeness = isActive(entry) ? 'active ' : ''
     var indention = name === entry.name ? '' : 'indented'
@@ -129,6 +141,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
     )
   }
 
+  /** Renderiza um cabeçalho de diretório na lista de arquivos */
   function makeDirEntry(name: string) {
     return (
       <div key={'//dir/' + name} className="file-entry directory">
@@ -169,6 +182,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
 
       <h2>{props.isLoaded ? 'Local files' : 'loading files...'}</h2>
 
+      {/* Atalho para o arquivo padrão de rascunho (Home) */}
       <div className={'file-entry ' + (isAtHome ? 'active' : '')}>
         <a href="#">
           <Icon shape={home_outline} /> Home
@@ -177,7 +191,7 @@ export function FileMenu(props: { app: App; files: FileEntry[]; isLoaded: boolea
 
       {entries.map((e) => (e.isDir ? makeDirEntry(e.name) : makeFileEntry(e.name, e.entry!)))}
 
-      <h2>{' '}</h2>
+      <h2>{' '}</h2>
 
       <p>
         Import files with <code>#import: file</code>

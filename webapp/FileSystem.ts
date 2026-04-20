@@ -1,12 +1,21 @@
+/**
+ * Sistema de persistência e gerenciamento de arquivos para a webapp.
+ * Lida com o armazenamento local (localStorage) e a extração de código a partir da URL.
+ */
 import { Observable } from './Observable'
 import { Route } from './Route'
 
+/** Representa um metadado de arquivo salvo */
 export interface FileEntry {
   name: string
   date: string
   backingStore: StoreKind
 }
 
+/** 
+ * Orquestrador do sistema de arquivos. 
+ * Gerencia o arquivo ativo e alterna entre diferentes estratégias de armazenamento.
+ */
 export class FileSystem {
   signals: Observable = new Observable()
   activeFile: FileEntry = { name: '', date: '1970-01-01', backingStore: 'url' }
@@ -16,23 +25,27 @@ export class FileSystem {
     this.signals.trigger('updated')
   }
 
+  /** Cria um novo arquivo no armazenamento local */
   async moveToFileStorage(name: string, source: string) {
     var fileStore = new StoreLocal(name)
     fileStore.insert(source)
     this.signals.trigger('updated')
   }
 
+  /** Define o buffer padrão do localStorage como destino das gravações */
   async moveToLocalStorage(source: string): Promise<void> {
     this.storage = new StoreDefaultBuffer()
     await this.storage.save(source)
   }
 
+  /** Apaga um arquivo do armazenamento local */
   async discard(entry: FileEntry): Promise<void> {
     var fileStore = new StoreLocal(entry.name)
     await fileStore.clear()
     this.signals.trigger('updated')
   }
 
+  /** Altera a estratégia de armazenamento baseando-se na rota/hash da URL atual */
   async configureByRoute(path: string) {
     var route = Route.from(path)
     this.storage = this.routedStorage(route)
@@ -42,6 +55,7 @@ export class FileSystem {
     this.signals.trigger('updated')
   }
 
+  /** Fábrica de estratégias de armazenamento (Padrão Strategy) */
   routedStorage(route: Route): GraphStore {
     if (route.context === 'view') {
       return new StoreUrl(decodeURIComponent(route.path))
@@ -59,6 +73,7 @@ function fileEntry(name: string, backingStore: StoreKind): FileEntry {
   return { date: new Date().toISOString(), name, backingStore }
 }
 
+/** Interface comum para persistência de dados */
 interface GraphStore {
   files(): Promise<FileEntry[]>
   read(): Promise<string | undefined>
@@ -68,6 +83,7 @@ interface GraphStore {
   kind: StoreKind
 }
 
+/** Armazenamento padrão que guarda o último trabalho não salvo no localStorage */
 export class StoreDefaultBuffer implements GraphStore {
   kind: StoreKind = 'local_default'
   storageKey: string = 'nomnoml.lastSource'
@@ -84,6 +100,7 @@ export class StoreDefaultBuffer implements GraphStore {
   async clear(): Promise<void> {}
 }
 
+/** "Armazenamento" somente leitura que extrai o código diretamente da URL */
 export class StoreUrl implements GraphStore {
   kind: StoreKind = 'url'
   constructor(private source: string) {}
@@ -98,6 +115,7 @@ export class StoreUrl implements GraphStore {
   async clear(): Promise<void> {}
 }
 
+/** Armazenamento de arquivos nomeados salvos pelo usuário no localStorage */
 export class StoreLocal implements GraphStore {
   kind: StoreKind = 'local_file'
   storageKey: string

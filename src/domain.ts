@@ -1,7 +1,13 @@
+/**
+ * Definições de tipos e interfaces fundamentais do domínio nomnoml.
+ */
+
 import { Ranker } from 'graphre/decl/types'
 import { Graphics } from './Graphics'
 import { LayoutedNode } from './layouter'
 
+/** Configurações globais de estilo e comportamento do diagrama
+ */
 export interface Config {
   padding: number
   stroke: string
@@ -27,20 +33,24 @@ export interface Config {
   ranker: Ranker
 }
 
+/** Interface para medição de texto, permitindo independência do backend gráfico (Canvas/SVG) */
 export interface Measurer {
   setFont(family: string, size: number, weight: 'bold' | 'normal', style: 'italic' | 'normal'): void
   textWidth(text: string): number
   textHeight(): number
 }
 
+/** Assinatura para funções que desenham visualmente um nó */
 export interface Visualizer {
   (node: LayoutedNode, x: number, y: number, config: Config, g: Graphics): void
 }
 
+/** Assinatura para funções que definem o layout interno de um nó */
 export interface NodeLayouter {
   (config: Config, node: LayoutedNode): void
 }
 
+/** Tipos de formas visuais suportadas para os nós */
 export type Visual =
   | 'actor'
   | 'class'
@@ -65,6 +75,7 @@ export type Visual =
   | 'table'
   | 'transceiver'
 
+/** Estilização de texto (negrito, sublinhado, etc.) */
 export interface TextStyle {
   bold: boolean
   underline: boolean
@@ -72,6 +83,7 @@ export interface TextStyle {
   center: boolean
 }
 
+/** Configuração de estilo para um tipo específico de nó ou classificador */
 export interface Style {
   title: TextStyle
   body: TextStyle
@@ -82,6 +94,7 @@ export interface Style {
   direction: 'TB' | 'LR' | undefined
 }
 
+/** Rótulo textual associado a uma relação (linha entre nós) */
 export interface RelationLabel {
   x?: number
   y?: number

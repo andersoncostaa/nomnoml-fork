@@ -1,7 +1,12 @@
+/**
+ * Implementação da interface Graphics que gera código SVG.
+ * Em vez de desenhar em pixels, constrói uma árvore de elementos XML que pode ser serializada.
+ */
 import { Graphics, Vector } from './Graphics'
 import { last, range, sum } from './util'
 import { add } from './vector'
 
+/** Atributos SVG suportados */
 interface SvgAttr {
   transform?: string
   stroke?: string
@@ -19,6 +24,7 @@ interface SvgAttr {
   d?: string
 }
 
+/** Atributos específicos da tag raiz <svg> */
 type SvgRootAttr = SvgAttr & {
   version?: string
   baseProfile?: string
@@ -31,9 +37,11 @@ type SvgRootAttr = SvgAttr & {
 }
 
 interface ISvgGraphics extends Graphics {
+  /** Serializa a árvore de elementos para uma string SVG completa */
   serialize(size: { width: number; height: number }, code: string, title: string): string
 }
 
+/** Helper para converter um objeto de atributos em string: key="value" */
 function toAttrString(obj: Record<string, undefined | string | number>): string {
   return Object.entries(obj)
     .filter(([_, val]) => val !== undefined)
@@ -41,6 +49,7 @@ function toAttrString(obj: Record<string, undefined | string | number>): string 
     .join(' ')
 }
 
+/** Codifica caracteres especiais para XML/HTML */
 function xmlEncode(str: string | undefined | number) {
   if ('number' === typeof str) return str.toFixed(1)
   return (str ?? '')
@@ -52,6 +61,7 @@ function xmlEncode(str: string | undefined | number) {
     .replace(/'/g, '&apos;')
 }
 
+/** Heurística de larguras de caracteres para medição de texto quando não há Canvas disponível */
 // prettier-ignore
 export const charWidths: { [key: string]: number } = {"0":10,"1":10,"2":10,"3":10,"4":10,"5":10,"6":10,"7":10,"8":10,"9":10," ":5,"!":5,"\"":6,"#":10,"$":10,"%":15,"&":11,"'":4,"(":6,")":6,"*":7,"+":10,",":5,"-":6,".":5,"/":5,":":5,";":5,"<":10,"=":10,">":10,"?":10,"@":17,"A":11,"B":11,"C":12,"D":12,"E":11,"F":10,"G":13,"H":12,"I":5,"J":9,"K":11,"L":10,"M":14,"N":12,"O":13,"P":11,"Q":13,"R":12,"S":11,"T":10,"U":12,"V":11,"W":16,"X":11,"Y":11,"Z":10,"[":5,"\\":5,"]":5,"^":8,"_":10,"`":6,"a":10,"b":10,"c":9,"d":10,"e":10,"f":5,"g":10,"h":10,"i":4,"j":4,"k":9,"l":4,"m":14,"n":10,"o":10,"p":10,"q":10,"r":6,"s":9,"t":5,"u":10,"v":9,"w":12,"x":9,"y":9,"z":9,"{":6,"|":5,"}":6,"~":10}
 
@@ -67,12 +77,15 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     'font-size': '12pt',
   }
 
+  // Se estiver no browser, pode usar um canvas oculto para medição precisa de texto
   const measurementCanvas: HTMLCanvasElement | null = document
     ? document.createElement('canvas')
     : null
   const ctx = measurementCanvas ? measurementCanvas.getContext('2d') : null
 
   type SvgElement = 'svg' | 'g' | 'path' | 'ellipse' | 'circle' | 'rect' | 'text' | 'desc' | 'title'
+  
+  /** Representa um elemento na árvore do SVG */
   class Element<TAttr extends SvgAttr = SvgAttr> {
     constructor(name: SvgElement, attr: TAttr, parent: GroupElement | undefined, text?: string) {
       this.name = name
@@ -101,6 +114,7 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     group() {
       return this.parent
     }
+    /** Converte o elemento e seus filhos para string XML recursivamente */
     serialize(): string {
       const data = getAncestorData(this.group()) ?? {}
       const attrs = toAttrString({ ...this.attr, ...data })
@@ -116,11 +130,13 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     }
   }
 
+  /** Coleta metadados (data-*) acumulados de todos os ancestrais */
   function getAncestorData(group: GroupElement | undefined): Record<string, string> | undefined {
     if (!group) return syntheticRoot.data
     return { ...getAncestorData(group.parent), ...group.data }
   }
 
+  /** Busca um valor de atributo subindo na hierarquia de grupos (herança de estilo) */
   function getDefined<T>(
     group: GroupElement | undefined,
     getter: (e: GroupElement) => T | undefined
@@ -129,6 +145,7 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     return getter(group) ?? getDefined<T>(group.parent, getter) ?? getter(syntheticRoot)
   }
 
+  /** Elemento de grupo <g> que herda estilos e pode conter outros elementos */
   class GroupElement extends Element {
     constructor(parent: GroupElement) {
       super('g', {}, parent)
@@ -154,11 +171,13 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     },
     undefined
   )
+  
   let current: GroupElement = new GroupElement(root as GroupElement)
   current.attr = initialState
   root.children.push(current)
   let inPathBuilderMode = false
 
+  /** Desenha um caminho SVG (path) baseado em pontos */
   function tracePath(path: Vector[], offset: Vector = { x: 0, y: 0 }, s: number = 1): Element {
     const d = path
       .map(
@@ -169,6 +188,7 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     return el('path', { d: d })
   }
 
+  /** Helper para criar e adicionar um elemento ao grupo atual */
   function el(type: SvgElement, attr: any, text?: string) {
     const element = new Element(type, attr, current, text)
     current.children.push(element)
@@ -188,6 +208,7 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     },
     ellipse: function (center, w, h, start = 0, stop = 0) {
       if (start || stop) {
+        // SVG não tem arco de elipse simples como o Canvas, então aproximamos com polilinha
         const path = range([start, stop], 64).map((a) =>
           add(center, { x: (Math.cos(a) * w) / 2, y: (Math.sin(a) * h) / 2 })
         )
@@ -269,7 +290,7 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
     },
     measureText: function (s: string) {
       if (ctx) {
-        // use supplied canvas to measure text
+        // Usa o contexto do canvas para medir o texto precisamente
         if (current)
           ctx.font = `${getDefined(current, (e) => e.attr['font-weight'])} ${getDefined(
             current,
@@ -282,12 +303,11 @@ export function GraphicsSvg(document?: HTMLDocument): ISvgGraphics {
           ctx.font = `${initialState['font-weight']} ${initialState['font-style']} ${initialState['font-size']} ${initialState['font-family']}`
         return ctx.measureText(s)
       } else {
-        // use heuristic to measure text
+        // Heurística baseada em larguras fixas quando rodando fora do browser (Node.js)
         return {
           width: sum(s, function (c: string) {
             const size = getDefined(current, (e) => e.attr['font-size']) ?? 12
             const scale = parseInt(size.toString()) / 12
-            // non-ascii characters all treated as wide
             return (charWidths[c] ?? 16) * scale
           }),
         }

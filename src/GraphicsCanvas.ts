@@ -1,3 +1,7 @@
+/**
+ * Implementação da interface Graphics utilizando o Canvas HTML5.
+ * Mapeia as operações de desenho abstratas para as chamadas nativas do CanvasRenderingContext2D.
+ */
 import { Graphics } from './Graphics'
 import { Vec } from './vector'
 
@@ -5,11 +9,15 @@ interface ICanvasGraphics extends Graphics {
   mousePos(): Vec
 }
 
+/**
+ * Cria um adaptador Graphics para um elemento HTMLCanvasElement.
+ */
 export function GraphicsCanvas(canvas: HTMLCanvasElement): ICanvasGraphics {
   const ctx = canvas.getContext('2d')!
   const twopi = 2 * 3.1416
   let mousePos = { x: 0, y: 0 }
 
+  /** Métodos encadeáveis para stroke e fill no Canvas */
   const chainable = {
     stroke: function () {
       ctx.stroke()
@@ -26,6 +34,7 @@ export function GraphicsCanvas(canvas: HTMLCanvasElement): ICanvasGraphics {
     },
   }
 
+  /** Desenha um caminho aberto baseado em uma lista de pontos */
   function tracePath(path: Vec[], offset?: Vec, s?: number) {
     s = s === undefined ? 1 : s
     offset = offset || { x: 0, y: 0 }
@@ -127,6 +136,7 @@ export function GraphicsCanvas(canvas: HTMLCanvasElement): ICanvasGraphics {
       ctx.lineWidth = w
     },
 
+    // Métodos delegados diretamente para o contexto do Canvas
     arcTo: function () {
       return ctx.arcTo.apply(ctx, arguments)
     },
@@ -148,6 +158,7 @@ export function GraphicsCanvas(canvas: HTMLCanvasElement): ICanvasGraphics {
     restore: function () {
       return ctx.restore.apply(ctx, arguments)
     },
+    /** O Canvas padrão não suporta metadados por elemento */
     setData: function (name: string, value: string) {},
     save: function () {
       return ctx.save.apply(ctx, arguments)

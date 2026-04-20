@@ -1,13 +1,26 @@
 {
+  /*
+    Configurações do compilador TypeScript para o diretório webapp.
+    Otimizado para o ecossistema React e para interagir com o ambiente do browser.
+  */
   "compilerOptions": {
+    /* Estratégia moderna de resolução de módulos estilo Node.js Next */
     "moduleResolution": "NodeNext",
+    /* Sistema de módulos de saída */
     "module": "NodeNext",
+    /* Versão do JavaScript de destino (moderno) */
     "target": "es2022",
+    /* Reporta erros em variáveis locais não utilizadas */
     "noUnusedLocals": true,
+    /* Reporta erros quando um tipo 'any' implícito é detectado */
     "noImplicitAny": true,
+    /* Verificação rigorosa de null e undefined */
     "strictNullChecks": true,
+    /* Indica que o Rollup fará a geração de arquivos finais (este tsconfig é apenas para tipos) */
     "noEmit": true,
+    /* Habilita o suporte a sintaxe JSX para o React */
     "jsx": "react"
   },
+  /* Inclui todos os arquivos deste diretório no contexto de checagem de tipos */
   "include": ["*"]
 }

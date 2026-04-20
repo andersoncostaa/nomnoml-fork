@@ -1,3 +1,7 @@
+/**
+ * Módulo de renderização que converte o modelo de layout (LayoutedPart) em comandos gráficos reais.
+ * Utiliza o objeto 'Graphics' para desenhar nós, relações e rótulos.
+ */
 import { Config, RelationLabel, TextStyle } from './domain'
 import { Graphics } from './Graphics'
 import { LayoutedAssoc, LayoutedNode, LayoutedPart } from './layouter'
@@ -6,9 +10,16 @@ import { last } from './util'
 import { add, Vec } from './vector'
 import { buildStyle, styles, visualizers } from './visuals'
 
+/**
+ * Função principal de renderização que percorre recursivamente a estrutura de layout.
+ * @param graphics O contexto gráfico (Canvas ou SVG).
+ * @param config Configurações de estilo.
+ * @param compartment A estrutura de dados resultante do motor de layout.
+ */
 export function render(graphics: Graphics, config: Config, compartment: LayoutedPart) {
   const g = graphics
 
+  /** Renderiza um compartimento (pode ser o diagrama raiz ou o interior de um nó) */
   function renderCompartment(
     compartment: LayoutedPart,
     color: string | undefined,
@@ -18,6 +29,8 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     g.save()
     g.translate(compartment.offset!.x, compartment.offset!.y)
     g.fillStyle(color || config.stroke)
+    
+    // Renderiza as linhas de texto (títulos ou corpo do nó)
     for (let i = 0; i < compartment.lines.length; i++) {
       const text = compartment.lines[i]
       g.textAlign(style.center ? 'center' : 'left')
@@ -26,6 +39,8 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
       if (text) {
         g.fillText(text, x, y)
       }
+      
+      // Aplica sublinhado se definido no estilo
       if (style.underline) {
         const w = g.measureText(text).width
         y += Math.round(config.fontSize * 0.2) + 0.5
@@ -43,6 +58,8 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
         g.lineWidth(config.lineWidth)
       }
     }
+    
+    // Renderiza o conteúdo interno (relações e nós aninhados)
     g.save()
     g.translate(config.gutter, config.gutter)
     for (const r of compartment.assocs) renderRelation(r)
@@ -51,6 +68,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     g.restore()
   }
 
+  /** Renderiza um nó individual, aplicando seu visualizador específico (classe, pacote, etc.) */
   function renderNode(node: LayoutedNode, level: number) {
     const x = node.x - node.width / 2
     const y = node.y - node.height / 2
@@ -61,19 +79,26 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     g.setData('compartment', undefined)
 
     g.save()
+    // Define cores de preenchimento e traço baseadas no nível de aninhamento e estilo
     g.fillStyle(style.fill || config.fill[level] || last(config.fill))
     g.strokeStyle(style.stroke || config.stroke)
+    
     if (style.dashed) {
       const dash = Math.max(4, 2 * config.lineWidth)
       g.setLineDash([dash, dash])
     }
+    
+    // Executa a função visualizadora do nó (ex: desenha o contorno)
     const drawNode = visualizers[style.visual] || visualizers.class
     drawNode(node, x, y, config, g)
+    
+    // Desenha linhas divisórias entre compartimentos
     for (const divider of node.dividers!) {
       g.path(divider.map((e) => add(e, { x, y }))).stroke()
     }
     g.restore()
 
+    // Renderiza cada compartimento (parte) de texto ou sub-diagrama do nó
     let partIndex = 0
     for (let part of node.parts) {
       const textStyle = part === node.parts[0] ? style.title : style.body
@@ -94,6 +119,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     g.restore()
   }
 
+  /** Desenha uma linha de relação, opcionalmente com cantos arredondados */
   function strokePath(p: Vec[]) {
     if (config.edges === 'rounded') {
       const radius = config.spacing * config.bendSize
@@ -108,6 +134,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     } else g.path(p).stroke()
   }
 
+  /** Renderiza rótulos de texto associados a uma relação */
   function renderLabel(label: RelationLabel) {
     if (!label || !label.text) return
     const fontSize = config.fontSize
@@ -117,6 +144,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     }
   }
 
+  /** Renderiza uma associação completa: linha, terminadores (setas) e rótulos */
   function renderRelation(r: LayoutedAssoc) {
     const path = getPath(config, r)
 
@@ -126,6 +154,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     renderLabel(r.startLabel)
     renderLabel(r.endLabel)
 
+    // Desenha a linha da relação (sólida ou tracejada)
     if (r.type !== '-/-') {
       if (r.type.includes('--')) {
         const dash = Math.max(4, 2 * config.lineWidth)
@@ -136,9 +165,11 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
       } else strokePath(path)
     }
 
+    // Desenha as pontas de seta ou outros terminadores
     drawTerminators(g, config, r)
   }
 
+  /** Configura o fundo do diagrama */
   function setBackground() {
     g.clear()
     g.save()
@@ -148,6 +179,7 @@ export function render(graphics: Graphics, config: Config, compartment: Layouted
     g.restore()
   }
 
+  // Inicializa o contexto gráfico com as configurações globais e renderiza a raiz
   g.save()
   g.scale(config.zoom, config.zoom)
   setBackground()

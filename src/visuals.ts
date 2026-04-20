@@ -1,8 +1,13 @@
+/**
+ * Módulo que define os estilos visuais, as regras de layout interno para cada tipo de nó
+ * e as funções de desenho (visualizers) para os diferentes classificadores (classe, ator, etc.).
+ */
 import { Config, NodeLayouter, Style, TextStyle, Visual, Visualizer } from './domain'
 import { LayoutedNode, LayoutedPart } from './layouter'
 import { sum, last, range } from './util'
 import { Vec } from './vector'
 
+/** Helper para construir um objeto de estilo completo a partir de partes opcionais */
 export function buildStyle(
   conf: Partial<Style>,
   title: Partial<TextStyle>,
@@ -29,6 +34,7 @@ export function buildStyle(
   }
 }
 
+/** Dicionário de estilos padrão para cada tipo de classificador nomnoml */
 // prettier-ignore
 export const styles: { [key: string]: Style } = {
   abstract:    buildStyle({ visual:'class' }, { center:true, italic:true }),
@@ -58,6 +64,7 @@ export const styles: { [key: string]: Style } = {
   usecase:     buildStyle({ visual:'ellipse' }, { center:true }, { center: true }),
 }
 
+/** Helper para calcular o layout de caixas retangulares empilhando seus compartimentos */
 function offsetBox(config: Config, clas: LayoutedNode, offset: Vec) {
   clas.width = Math.max(...clas.parts.map((e) => e.width ?? 0))
   clas.height = sum(clas.parts, (e) => e.height ?? 0 ?? 0)
@@ -75,10 +82,13 @@ function offsetBox(config: Config, clas: LayoutedNode, offset: Vec) {
       ])
   }
 }
+
+/** Layout padrão para formas retangulares */
 function box(config: Config, clas: LayoutedNode) {
   offsetBox(config, clas, { x: 0, y: 0 })
 }
 
+/** Layout para ícones sem texto interno */
 function icon(config: Config, clas: LayoutedNode) {
   clas.dividers = []
   clas.parts = []
@@ -86,6 +96,7 @@ function icon(config: Config, clas: LayoutedNode) {
   clas.height = config.fontSize * 2.5
 }
 
+/** Layout para ícones que possuem rótulos externos */
 function labelledIcon(config: Config, clas: LayoutedNode) {
   clas.width = config.fontSize * 1.5
   clas.height = config.fontSize * 1.5
@@ -103,6 +114,7 @@ function labelledIcon(config: Config, clas: LayoutedNode) {
   }
 }
 
+/** Dicionário de funções de layout interno para cada tipo de Visual */
 export const layouters: { [key in Visual]: NodeLayouter } = {
   actor: function (config: Config, clas: LayoutedNode) {
     clas.width = Math.max(config.padding * 2, ...clas.parts.map((e) => e.width ?? 0))
@@ -297,6 +309,7 @@ export const layouters: { [key in Visual]: NodeLayouter } = {
   transceiver: box,
 }
 
+/** Dicionário de funções que realizam o desenho técnico de cada tipo de Visual no Graphics */
 export const visualizers: { [key in Visual]: Visualizer } = {
   actor: function (node, x, y, config, g) {
     const a = config.padding / 2

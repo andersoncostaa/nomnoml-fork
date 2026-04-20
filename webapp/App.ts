@@ -1,3 +1,8 @@
+/**
+ * Classe principal que gerencia o estado da aplicação web nomnoml.
+ * Orquestra o editor (CodeMirror), o sistema de arquivos, a renderização do diagrama
+ * e a interação com o usuário (zoom, exportação, menus).
+ */
 import type { CodeMirror, CodeMirrorEditor } from './declarations'
 import { CanvasPanner } from './CanvasPanner'
 import { DevEnv } from './DevEnv'
@@ -33,6 +38,7 @@ export class App {
     var canvasElement = document.getElementById('canvas') as HTMLCanvasElement
     var canvasPanner = document.getElementById('canvas-panner')
 
+    // Inicializa o editor de código CodeMirror com sintaxe nomnoml
     this.editor = codeMirror.fromTextArea(textarea, {
       lineNumbers: true,
       mode: 'nomnoml',
@@ -41,6 +47,7 @@ export class App {
       keyMap: 'sublime',
     })
 
+    // Permite arrastar e soltar arquivos SVG para carregar o código embutido neles
     this.editor.on('drop', (cm: any, dragEvent: DragEvent) => {
       var files = dragEvent.dataTransfer?.files
       if (files && files[0].type == 'image/svg+xml') {
@@ -59,6 +66,7 @@ export class App {
 
     var lastValidSource: string | null = null
 
+    /** Carrega o código do armazenamento (local ou URL) e atualiza o editor */
     var reloadStorage = async () => {
       lastValidSource = null
       await this.filesystem.configureByRoute(location.hash)
@@ -76,6 +84,8 @@ export class App {
       'resize',
       throttle(() => this.sourceChanged(), 750, { leading: true })
     )
+    
+    // Atualiza o diagrama sempre que o código for alterado (com debounce para performance)
     this.editor.on(
       'changes',
       debounce(() => this.sourceChanged(), 300)
@@ -98,6 +108,7 @@ export class App {
       }
     }
 
+    /** Pipeline de atualização: processa imports -> desenha -> salva -> atualiza UI */
     this.sourceChanged = async () => {
       try {
         this.signals.trigger('compile-error', null)
@@ -113,7 +124,7 @@ export class App {
         this.signals.trigger('source-changed', source)
       } catch (e) {
         this.signals.trigger('compile-error', e)
-        // Rerender canvas with last successfully rendered text.
+        // Em caso de erro, tenta manter a última visualização válida no canvas
         if (lastValidSource) {
           this.nomnoml.draw(canvasElement, lastValidSource, this.panner.zoom())
         }
@@ -127,6 +138,7 @@ export class App {
     reloadStorage()
   }
 
+  /** Extrai o código nomnoml oculto dentro da tag <desc> de um arquivo SVG */
   loadSvg(svg: string) {
     var svgNodes = new DOMParser().parseFromString(svg, 'text/xml')
     if (svgNodes.getElementsByTagName('desc').length !== 1) {
@@ -150,6 +162,7 @@ export class App {
     this.panner.reset()
   }
 
+  /** Gerencia a visibilidade das barras laterais (Export, Files, About, etc) */
   toggleSidebar(id: string) {
     var sidebars = ['about', 'reference', 'export', 'files']
     for (var key of sidebars) {
@@ -165,6 +178,7 @@ export class App {
     }
   }
 
+  /** Salva o diagrama atual no armazenamento local com um novo nome */
   async saveAs(defaultName: string = ''): Promise<'success' | 'failure'> {
     var name = prompt('Name your diagram', defaultName) ?? defaultName
     var source = this.currentSource()

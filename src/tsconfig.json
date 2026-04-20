@@ -1,13 +1,26 @@
 {
+  /*
+    Configurações do compilador TypeScript para o diretório src.
+    Define o padrão de saída de código e as regras de verificação de tipos.
+  */
   "compilerOptions": {
+    /* Define o sistema de módulos para o código gerado */
     "module": "es6",
+    /* Versão do JavaScript para a qual o código será transpilado */
     "target": "es2022",
+    /* Reporta erros quando um tipo 'any' implícito é detectado */
     "noImplicitAny": true,
+    /* Reporta erros quando variáveis locais não são utilizadas */
     "noUnusedLocals": true,
+    /* Verifica rigorosamente se valores podem ser null ou undefined */
     "strictNullChecks": true,
+    /* Remove os comentários do código JavaScript final para diminuir o tamanho */
     "removeComments": true,
+    /* Preserva enums constantes no código gerado */
     "preserveConstEnums": true,
+    /* Estratégia de resolução de módulos (estilo Node.js) */
     "moduleResolution": "node",
+    /* Gera arquivos .map para facilitar o debug do código TypeScript no browser */
     "sourceMap": true
   }
 }

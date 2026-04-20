@@ -1,3 +1,7 @@
+/**
+ * Ponto de entrada da aplicação web.
+ * Responsável por inicializar o React, configurar a aplicação (App) e renderizar a UI.
+ */
 import type { CodeMirror } from './declarations'
 import { createElement as el } from 'react'
 import * as ReactDOM from 'react-dom'
@@ -20,9 +24,15 @@ export var app: App
 // @ts-ignore
 export { version } from '../package.json'
 
+/**
+ * Função de inicialização chamada para montar a aplicação no DOM.
+ * @param CodeMirror Instância do editor de código a ser utilizada.
+ */
 export function bootstrap(CodeMirror: CodeMirror) {
   app = new App(CodeMirror)
   var elem = (query: string) => document.querySelector(query)!
+  
+  // Renderização inicial dos componentes React de menu e ferramentas
   render()
   renderFileMenu()
 
@@ -39,10 +49,15 @@ export function bootstrap(CodeMirror: CodeMirror) {
     })
   }
 
+  // Reage a mudanças de estado na aplicação para atualizar a interface
   app.signals.on('source-changed', render)
   app.signals.on('compile-error', render)
   app.filesystem.signals.on('updated', renderFileMenu)
 
+  /**
+   * Procura no documento por elementos de pré-visualização estática e renderiza-os como SVG.
+   * Utilizado para renderizar diagramas nomnoml embutidos em páginas HTML estáticas.
+   */
   function renderPreviews() {
     var files: Record<string, string> = {}
     var includes = document.querySelectorAll('[publish-as-file]')

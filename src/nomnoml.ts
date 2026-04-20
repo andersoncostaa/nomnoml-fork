@@ -1,3 +1,6 @@
+/**
+ * Módulo principal que coordena o fluxo de renderização e processamento de diretivas.
+ */
 import type { Config, Measurer } from './domain'
 import { Graphics } from './Graphics'
 import { layout } from './layouter'
@@ -11,11 +14,17 @@ interface Rect {
   height: number
 }
 
+/**
+ * Ajusta o tamanho físico do canvas HTML de acordo com as dimensões do diagrama e o zoom.
+ */
 function fitCanvasSize(canvas: HTMLCanvasElement, rect: Partial<Rect>, zoom: number) {
   canvas.width = rect.width! * zoom
   canvas.height = rect.height! * zoom
 }
 
+/**
+ * Cria um objeto 'Measurer' que utiliza o contexto gráfico para medir dimensões de texto.
+ */
 function createMeasurer(config: Config, graphics: Graphics): Measurer {
   return {
     setFont(
@@ -35,6 +44,9 @@ function createMeasurer(config: Config, graphics: Graphics): Measurer {
   }
 }
 
+/**
+ * Função interna que executa o pipeline completo: parse -> medição -> layout -> renderização.
+ */
 function parseAndRender(
   code: string,
   graphics: Graphics,
@@ -53,10 +65,16 @@ function parseAndRender(
   return { config: config, layout: graphLayout }
 }
 
+/**
+ * Renderiza um diagrama em um elemento <canvas> do navegador.
+ */
 export function draw(canvas: HTMLCanvasElement, code: string, scale?: number): { config: Config } {
   return parseAndRender(code, GraphicsCanvas(canvas), canvas, scale || 1)
 }
 
+/**
+ * Renderiza um diagrama e retorna uma string contendo o código SVG gerado.
+ */
 export function renderSvg(code: string, document?: HTMLDocument): string {
   const skCanvas = GraphicsSvg(document)
   const { config, layout } = parseAndRender(code, skCanvas, null, 1)
@@ -70,6 +88,7 @@ export function renderSvg(code: string, document?: HTMLDocument): string {
   )
 }
 
+/** Erro lançado quando o limite de recursão de #import é atingido */
 export class ImportDepthError extends Error {
   constructor() {
     super('max_import_depth exceeded')
@@ -78,6 +97,9 @@ export class ImportDepthError extends Error {
 
 type FileLoaderAsync = (filename: string) => Promise<string>
 
+/**
+ * Processa recursivamente as diretivas #import no código-fonte de forma assíncrona.
+ */
 export async function processAsyncImports(
   source: string,
   loadFile: FileLoaderAsync,
@@ -115,6 +137,9 @@ export async function processAsyncImports(
 
 type FileLoader = (filename: string) => string
 
+/**
+ * Processa recursivamente as diretivas #import no código-fonte de forma síncrona.
+ */
 export function processImports(
   source: string,
   loadFile: FileLoader,
@@ -137,6 +162,9 @@ export function processImports(
   )
 }
 
+/**
+ * Utilitário para Node.js que lê e processa um arquivo local e seus imports.
+ */
 export function compileFile(filepath: string, maxImportDepth?: number): string {
   const fs = require('fs')
   const path = require('path')
